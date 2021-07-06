@@ -1,0 +1,119 @@
+.cn-red-text {
+  color: red;
+}
+
+.cn-blue-text {
+  color: blue;
+}
+
+/* bar */
+.cn-bar {
+  display: grid;
+  grid-gap: 0.5em;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0.5em;
+  line-height: 38px;
+}
+
+@media (max-width: 550px) {
+  .cn-bar {
+    font-size: 0.5em;
+    line-height: 19px;
+  }
+}
+
+.cn-score {
+  float: left;
+}
+
+.cn-status {
+  text-align: center;
+}
+
+.cn-end-turn-button {
+  float: right;
+  margin-bottom: 0;
+}
+
+
+.cn-new-game-button {
+  margin-left: 1em;
+}
+
+.cn-toggle-master-button {}
+
+/* tile */
+.cn-board {
+  display: grid;
+  grid-gap: 0.5em;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 0.5em;
+}
+
+.cn-tile {
+  padding: 1.5em 0;
+  text-align: center;
+  background: #EEE;
+  font-size: 0.5em;
+}
+
+@media (min-width: 400px) {
+  .cn-tile {
+    padding: 2em 0;
+    font-size: 0.5em;
+  }
+}
+
+@media (min-width: 550px) {
+  .cn-tile {
+    padding: 1.5em 0;
+    font-size: 1em;
+  }
+}
+
+@media (min-width: 750px) {
+  .cn-tile {
+    padding: 2.5em 0;
+    font-size: 1em;
+  }
+}
+
+.cn-tile-blue.cn-tile-picked {
+  background: blue;
+  color: white;
+}
+
+.cn-tile-red.cn-tile-picked {
+  background: red;
+  color: white;
+}
+
+.cn-tile-neutral.cn-tile-picked {
+  background: tan;
+}
+
+.cn-tile-death.cn-tile-picked {
+  background: #000;
+  color: white;
+}
+
+.cn-tile-red.cn-tile-unpicked.cn-tile-master {
+  color: red;
+}
+
+.cn-tile-blue.cn-tile-unpicked.cn-tile-master {
+  color: blue;
+}
+
+.cn-tile-death.cn-tile-unpicked.cn-tile-master {
+  background: #777;
+  color: white;
+}
+
+.cn-tile-pick {
+  cursor: pointer;
+}
+
+.cn-tile-master {
+  cursor: not-allowed;
+}

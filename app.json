@@ -1,0 +1,6 @@
+{
+  "name": "Codenames",
+  "description": "Codenames in Clojure/Script",
+  "image": "heroku/clojure",
+  "addons": [ "heroku-postgresql" ]
+}
