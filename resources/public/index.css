@@ -95,39 +95,40 @@
   }
 }
 
-.cn-tile-blue.cn-tile-picked {
+.cn-tile-blue.cn-tile-inactive {
   background: blue;
   color: white;
 }
 
-.cn-tile-red.cn-tile-picked {
+.cn-tile-red.cn-tile-inactive {
   background: red;
   color: white;
 }
 
-.cn-tile-neutral.cn-tile-picked {
+.cn-tile-bystander.cn-tile-inactive {
   background: tan;
+  color: white;
 }
 
-.cn-tile-death.cn-tile-picked {
+.cn-tile-assassin.cn-tile-inactive {
   background: #000;
   color: white;
 }
 
-.cn-tile-red.cn-tile-unpicked.cn-tile-spymaster {
+.cn-tile-red.cn-tile-active.cn-tile-spymaster {
   color: red;
 }
 
-.cn-tile-blue.cn-tile-unpicked.cn-tile-spymaster {
+.cn-tile-blue.cn-tile-active.cn-tile-spymaster {
   color: blue;
 }
 
-.cn-tile-death.cn-tile-unpicked.cn-tile-spymaster {
+.cn-tile-assassin.cn-tile-active.cn-tile-spymaster {
   background: #777;
   color: white;
 }
 
-.cn-tile-pick {
+.cn-tile-selectable {
   cursor: pointer;
 }
 

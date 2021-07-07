@@ -1,12 +1,12 @@
 (ns codenames.frontend.game
-  (:require [cljs.core.async :refer [chan <!]]
+  (:require [cljs.core.async :refer [chan <! >!]]
             [cljs-http.client :as http]
             [clojure.string :as str]
             [codenames.core.game :as game]
             [cognitect.transit :as transit]
             [reagent.core :as r]
             [taoensso.timbre :as log])
-  (:require-macros [cljs.core.async.macros :refer [>! go]]))
+  (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (comment
   (def example-state {:words
@@ -38,7 +38,7 @@
                       :blue-words ["MAIL" "DRAGON" "MOUTH" "POUND" "TRAIN" "SOCK" "FAIR"],
                       :red-words
                       ["MAIL" "DRAGON" "MOUTH" "POUND" "TRAIN" "SOCK" "FAIR" "MOON"],
-                      :death-word "MOON",
+                      :assassin-word "MOON",
                       :actions [],
                       :turn "red",
                       :winner nil}))
@@ -85,24 +85,24 @@
                 entry
                 (first entry))))))
 
-(defn tile [{:keys [word pick-word! state spymaster?]}]
+(defn tile [{:keys [word state select-word! spymaster?]}]
   (let [{:keys [winner turn]} state
         inactive-word? (game/inactive-word? state word)
         category (game/categorize-word state word)
         class (classes ["cn-tile"
                         (str "cn-tile-" category)
-                        ["cn-tile-picked" inactive-word?]
-                        ["cn-tile-unpicked" (not inactive-word?)]
-                        ["cn-tile-pick" (not (or inactive-word? winner spymaster?))]
+                        ["cn-tile-inactive" inactive-word?]
+                        ["cn-tile-active" (not inactive-word?)]
+                        ["cn-tile-selectable" (not (or inactive-word? winner spymaster?))]
                         ["cn-tile-spymaster" (or winner spymaster?)]])
-        on-click (when-not (or winner inactive-word? spymaster?) (fn [] (pick-word! turn word)))]
+        on-click (when-not (or winner inactive-word? spymaster?) (fn [] (select-word! turn word)))]
     [:div {:class class :on-click on-click} word]))
 
-(defn board [{:keys [state pick-word! spymaster?]}]
+(defn board [{:keys [state select-word! spymaster?]}]
   [:div.cn-board
    (for [word (:words state)]
      ^{:key word}
-     [tile {:word word :pick-word! pick-word! :state state :spymaster? spymaster?}])])
+     [tile {:word word :select-word! select-word! :state state :spymaster? spymaster?}])])
 
 (defn view [{:keys [id state spymaster? set-spymaster! new-game!] :as props}]
   [:<>
@@ -167,13 +167,13 @@
   (let [state-atom (r/atom nil)
         spymaster-atom (r/atom false)
         set-spymaster! #(reset! spymaster-atom %)
-        pick-word! (fn [team word]
-                     (go (let [response (<! (http/post
-                                             (game-path id)
-                                             {:json-params {:type "pick-word"
-                                                            :team team
-                                                            :word word}}))]
-                           (reset! state-atom (:body response)))))
+        select-word! (fn [team word]
+                       (go (let [response (<! (http/post
+                                               (game-path id)
+                                               {:json-params {:type "select-word"
+                                                              :team team
+                                                              :word word}}))]
+                             (reset! state-atom (:body response)))))
         end-turn! (fn [team]
                     (go (let [response (<! (http/post
                                             (game-path id)
@@ -193,7 +193,7 @@
     (fn []
       [view {:id id
              :state @state-atom
-             :pick-word! pick-word!
+             :select-word! select-word!
              :end-turn! end-turn!
              :new-game! new-game!
              :spymaster? @spymaster-atom

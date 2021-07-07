@@ -55,8 +55,8 @@
        (route/not-found (selmer/render-file "templates/not-found.html" {}))))
 
 (def site-handler (-> #'site-routes
-                       (wrap-resource "public")
-                       (wrap-defaults site-defaults)))
+                      (wrap-resource "public")
+                      (wrap-defaults site-defaults)))
 
 (defn rswap! [atom f]
   (let [new-val (swap! atom (fn [val]
@@ -102,15 +102,15 @@
   (d/let-flow [conn (d/catch
                         (http/websocket-connection req)
                         (constantly nil))]
-    (if-not conn
-      non-websocket-response
-      (do (s/connect-via
-           (bus/subscribe game-bus id)
-           (fn [message]
-             (s/put! conn (msg/encode message)))
-           conn)
-          (s/put! conn (msg/encode {:type "connected"}))
-          {:status 101}))))
+              (if-not conn
+                non-websocket-response
+                (do (s/connect-via
+                     (bus/subscribe game-bus id)
+                     (fn [message]
+                       (s/put! conn (msg/encode message)))
+                     conn)
+                    (s/put! conn (msg/encode {:type "connected"}))
+                    {:status 101}))))
 
 (defroutes api-routes
   (GET "/api/games/:id" [id]
@@ -119,13 +119,13 @@
          (game-not-found-resp id)))
 
   (POST "/api/games/:id" [id :as {action :body}]
-       (let [[_ game] (rswap!
-                       game-store
-                       (fn [games] (manage-game games id action)))]
-         (bus/publish! game-bus id {:type "state" :state game})
-         (if game
-           (game-resp game)
-           (game-not-found-resp id))))
+        (let [[_ game] (rswap!
+                        game-store
+                        (fn [games] (manage-game games id action)))]
+          (bus/publish! game-bus id {:type "state" :state game})
+          (if game
+            (game-resp game)
+            (game-not-found-resp id))))
 
   (GET "/api/game-subscriptions/:id" [id :as req]
        (handle-subscription id req))
