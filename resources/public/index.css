@@ -11,14 +11,14 @@
   display: grid;
   grid-gap: 0.5em;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: 0.5em;
+  margin-bottom: 1em;
   line-height: 38px;
 }
 
 @media (max-width: 550px) {
   .cn-bar {
-    font-size: 0.5em;
-    line-height: 19px;
+    font-size: 0.75em;
+    line-height: 28px;
   }
 }
 
@@ -35,19 +35,36 @@
   margin-bottom: 0;
 }
 
+.cn-operative-button {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.cn-spymaster-button {
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.cn-role-button-enabled {
+  background: #EEE;
+}
+
+.cn-role-button-disabled {
+  color: #999;
+}
 
 .cn-new-game-button {
   margin-left: 1em;
+  float: right;
 }
-
-.cn-toggle-master-button {}
 
 /* tile */
 .cn-board {
   display: grid;
   grid-gap: 0.5em;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-bottom: 0.5em;
+  margin-bottom: 1em;
 }
 
 .cn-tile {
@@ -97,15 +114,15 @@
   color: white;
 }
 
-.cn-tile-red.cn-tile-unpicked.cn-tile-master {
+.cn-tile-red.cn-tile-unpicked.cn-tile-spymaster {
   color: red;
 }
 
-.cn-tile-blue.cn-tile-unpicked.cn-tile-master {
+.cn-tile-blue.cn-tile-unpicked.cn-tile-spymaster {
   color: blue;
 }
 
-.cn-tile-death.cn-tile-unpicked.cn-tile-master {
+.cn-tile-death.cn-tile-unpicked.cn-tile-spymaster {
   background: #777;
   color: white;
 }
@@ -114,6 +131,6 @@
   cursor: pointer;
 }
 
-.cn-tile-master {
+.cn-tile-spymaster {
   cursor: not-allowed;
 }

@@ -5,8 +5,8 @@
             [codenames.core.game :as game]
             [cognitect.transit :as transit]
             [reagent.core :as r]
-            [reagent.dom :as rd])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+            [taoensso.timbre :as log])
+  (:require-macros [cljs.core.async.macros :refer [>! go]]))
 
 (comment
   (def example-state {:words
@@ -43,10 +43,10 @@
                       :turn "red",
                       :winner nil}))
 
-(defn end-turn-button [{:keys [state end-turn]}]
+(defn end-turn-button [{:keys [state end-turn!]}]
   (let [{:keys [turn]} state]
     [:button.cn-end-turn-button
-     {:on-click (partial end-turn turn)}
+     {:on-click (partial end-turn! turn)}
      "End turn"]))
 
 (defn score [{:keys [state]}]
@@ -64,7 +64,7 @@
        [:span {:class (str "cn-" winner "-text")} (str winner " won")]
        [:span {:class (str "cn-" turn "-text")} (str turn "'s turn")])]))
 
-(defn bar [{:keys [state end-turn] :as props}]
+(defn bar [{:keys [state] :as props}]
   (let [{:keys [winner]} state]
     [:div.cn-bar
      [:div.cn-sore
@@ -74,28 +74,37 @@
      [:div
       (when-not winner [end-turn-button props])]]))
 
-(defn tile [{:keys [word pick-word state master?]}]
+(defn classes [entries]
+  (->> entries
+       (filter (fn [entry]
+                 (or (string? entry)
+                     (= (count entry) 1)
+                     (second entry))))
+       (map (fn [entry]
+              (if (string? entry)
+                entry
+                (first entry))))))
+
+(defn tile [{:keys [word pick-word! state spymaster?]}]
   (let [{:keys [winner turn]} state
         inactive-word? (game/inactive-word? state word)
         category (game/categorize-word state word)
-        potential-class [["cn-tile" true]
-                         [(str "cn-tile-" category) true]
-                         ["cn-tile-picked" inactive-word?]
-                         ["cn-tile-unpicked" (not inactive-word?)]
-                         ["cn-tile-pick" (not (or inactive-word? winner master?))]
-                         ["cn-tile-master" (or winner master?)]]
-        class (map first (filter second potential-class))
-        on-click (when-not (or winner inactive-word? master?) (fn [] (pick-word turn word)))]
+        class (classes ["cn-tile"
+                        (str "cn-tile-" category)
+                        ["cn-tile-picked" inactive-word?]
+                        ["cn-tile-unpicked" (not inactive-word?)]
+                        ["cn-tile-pick" (not (or inactive-word? winner spymaster?))]
+                        ["cn-tile-spymaster" (or winner spymaster?)]])
+        on-click (when-not (or winner inactive-word? spymaster?) (fn [] (pick-word! turn word)))]
     [:div {:class class :on-click on-click} word]))
 
-(defn board [{:keys [state pick-word master?]}]
-  (let [{:keys [words turn]} state]
-    [:div.cn-board
-     (for [word (:words state)]
-       ^{:key word}
-       [tile {:word word :pick-word pick-word :state state :master? master?}])]))
+(defn board [{:keys [state pick-word! spymaster?]}]
+  [:div.cn-board
+   (for [word (:words state)]
+     ^{:key word}
+     [tile {:word word :pick-word! pick-word! :state state :spymaster? spymaster?}])])
 
-(defn view [{:keys [id state end-turn master? toggle-master new-game] :as props}]
+(defn view [{:keys [id state spymaster? set-spymaster! new-game!] :as props}]
   [:<>
    [:h1 id]
    (if-not state
@@ -103,11 +112,18 @@
      [:<>
       [bar props]
       [board props]
-      [:button.cn-toggle-master-button
-       {:on-click toggle-master}
-       (if master? "Guesser" "Clue Giver")]
+      [:button.cn-operative-button
+       {:on-click #(set-spymaster! false)
+        :class ["cn-operative-button" (str "cn-role-button-" (if spymaster? "disabled" "enabled"))]
+        :disabled (not spymaster?)}
+       "Operative"]
+      [:button.cn-spymaster-button
+       {:on-click #(set-spymaster! true)
+        :class ["cn-spymaster-button" (str "cn-role-button-" (if spymaster? "enabled" "disabled"))]
+        :disabled spymaster?}
+       "Spymaster"]
       [:button.cn-new-game-button
-       {:on-click new-game}
+       {:on-click new-game!}
        "New Game"]])])
 
 (defn game-path [id] (str "/api/games/" id))
@@ -120,14 +136,14 @@
 
 (defn on-message [state-atom event]
   (let [message (decode (.-data event))
-        {:keys [type state]} message]
+        {:keys [state]} message]
     (case (:type message)
-      "connected" (println "Websocket connectin established.")
+      "connected" (log/debug "Websocket connection established.")
       "state" (reset! state-atom state )
-      (println (str "Invalid message: " message)))))
+      (log/debug (str "Invalid message: " message)))))
 
 (defn on-error [event]
-  (println (str "TODO: Websocket error:" event)))
+  (log/debug (str "TODO: Websocket error:" event)))
 
 (defn connect! [id state]
   (let [ch (chan)]
@@ -137,7 +153,7 @@
               host (-> js/window .-location .-hostname )
               base (if (str/blank? port) host (str host ":" port))
               url (str protocol "://" base "/api/game-subscriptions/" id)]
-          (println (str "Establishing websocket connection to " url "."))
+          (log/debug (str "Establishing websocket connection to " url "."))
           (let [socket (js/WebSocket. url)]
             (set! (.-onopen socket)
                   (fn on-open
@@ -149,26 +165,26 @@
 
 (defn root [id]
   (let [state-atom (r/atom nil)
-        master-atom (r/atom false)
-        toggle-master #(swap! master-atom not)
-        pick-word (fn [team word]
+        spymaster-atom (r/atom false)
+        set-spymaster! #(reset! spymaster-atom %)
+        pick-word! (fn [team word]
+                     (go (let [response (<! (http/post
+                                             (game-path id)
+                                             {:json-params {:type "pick-word"
+                                                            :team team
+                                                            :word word}}))]
+                           (reset! state-atom (:body response)))))
+        end-turn! (fn [team]
                     (go (let [response (<! (http/post
-                                           (game-path id)
-                                           {:json-params {:type "pick-word"
-                                                          :team team
-                                                          :word word}}))]
+                                            (game-path id)
+                                            {:json-params {:type "end-turn"
+                                                           :team team}}))]
                           (reset! state-atom (:body response)))))
-        end-turn (fn [team]
-                   (go (let [response (<! (http/post
-                                           (game-path id)
-                                           {:json-params {:type "end-turn"
-                                                          :team team}}))]
-                         (reset! state-atom (:body response)))))
-        new-game (fn []
-                   (go (let [response (<! (http/post
-                                           (game-path id)
-                                           {:json-params {:type "new-game"}}))]
-                         (reset! state-atom (:body response)))))]
+        new-game! (fn []
+                    (go (let [response (<! (http/post
+                                            (game-path id)
+                                            {:json-params {:type "new-game"}}))]
+                          (reset! state-atom (:body response)))))]
     (go (let [response (<! (http/post
                             (game-path id)
                             {:json-params {:type "get-game"}}))]
@@ -177,8 +193,8 @@
     (fn []
       [view {:id id
              :state @state-atom
-             :pick-word pick-word
-             :end-turn end-turn
-             :new-game new-game
-             :master? @master-atom
-             :toggle-master toggle-master}])))
+             :pick-word! pick-word!
+             :end-turn! end-turn!
+             :new-game! new-game!
+             :spymaster? @spymaster-atom
+             :set-spymaster! set-spymaster!}])))

@@ -1,6 +1,5 @@
 (ns codenames.core.game
-  (:require [clojure.set :as set]
-            [codenames.core.words :as words]))
+  (:require [codenames.core.words :as words]))
 
 (defn take-rand [n coll]
   (loop [taken []

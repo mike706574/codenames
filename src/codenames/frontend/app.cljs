@@ -1,10 +1,6 @@
 (ns codenames.frontend.app
-  (:require [cljs.core.async :refer [<!]]
-            [cljs-http.client :as http]
-            [codenames.frontend.game :as game]
-            [reagent.core :as r]
-            [reagent.dom :as rd])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+  (:require [codenames.frontend.game :as game]
+            [reagent.dom :as rd]))
 
 (defn app []
   (let [id (subs (-> js/window .-location .-pathname) 1)]

@@ -5,7 +5,6 @@
             [compojure.core :refer [defroutes GET POST ANY]]
             [compojure.route :as route]
             [cheshire.core :as json]
-            [clojure.java.io :as io]
             [clojure.string :as str]
             [manifold.bus :as bus]
             [manifold.deferred :as d]
@@ -15,21 +14,21 @@
             [ring.middleware.defaults :refer [wrap-defaults
                                               site-defaults
                                               api-defaults]]
-            [ring.middleware.json :refer [wrap-json-body
-                                          wrap-json-response]]
-            [ring.middleware.resource :refer [wrap-resource]]))
+            [ring.middleware.json :refer [wrap-json-body]]
+            [ring.middleware.resource :refer [wrap-resource]]
+            [taoensso.timbre :as log]))
 
 (defn wrap-logging
   [handler]
   (fn [{:keys [uri method] :as request}]
     (let [label (str method " \"" uri "\"")]
       (try
-        (println label)
+        (log/debug label)
         (let [{:keys [status] :as response} (handler request)]
-          (println (str label " -> " status))
+          (log/debug (str label " -> " status))
           response)
         (catch Exception e
-          (println e label)
+          (log/error e label)
           {:status 500
            :body (selmer/render-file "templates/error.html" {})})))))
 
@@ -46,8 +45,7 @@
   (GET "/" []
        (selmer/render-file "templates/index.html" {}))
 
-  (GET "/:id" [id]
-
+  (GET "/:id" []
        (selmer/render-file "templates/game.html" {}))
 
   (GET "/error" []
@@ -60,7 +58,7 @@
                        (wrap-resource "public")
                        (wrap-defaults site-defaults)))
 
-(defn ret-swap! [atom f]
+(defn rswap! [atom f]
   (let [new-val (swap! atom (fn [val]
                               (let [[new-val ret] (f val)]
                                 (with-meta new-val {:ret ret}))))]
@@ -121,10 +119,9 @@
          (game-not-found-resp id)))
 
   (POST "/api/games/:id" [id :as {action :body}]
-       (let [{:keys [type]} action
-             [games game] (ret-swap!
-                           game-store
-                           (fn [games] (manage-game games id action)))]
+       (let [[_ game] (rswap!
+                       game-store
+                       (fn [games] (manage-game games id action)))]
          (bus/publish! game-bus id {:type "state" :state game})
          (if game
            (game-resp game)

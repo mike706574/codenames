@@ -4,6 +4,7 @@
 
  :dependencies
  [[cljs-http "0.1.46"]
+  [com.taoensso/timbre "5.1.2"]
   [reagent "1.1.0"]]
 
  :builds

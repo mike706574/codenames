@@ -12,7 +12,8 @@
                  [ring/ring-defaults "0.2.3"]
                  [ring/ring-json "0.5.1"]
                  [selmer "1.12.40"]
-                 [com.cognitect/transit-clj "1.0.324"]]
+                 [com.cognitect/transit-clj "1.0.324"]
+                 [com.taoensso/timbre "5.1.2"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-shell "0.5.0"]]
   :uberjar-name "codenames.jar"
