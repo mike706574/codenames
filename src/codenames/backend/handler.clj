@@ -9,7 +9,6 @@
             [manifold.bus :as bus]
             [manifold.deferred :as d]
             [manifold.stream :as s]
-            [manifold.time :as t]
             [selmer.parser :as selmer]
             [ring.util.response :as resp]
             [ring.middleware.defaults :refer [wrap-defaults
@@ -24,9 +23,9 @@
   (fn [{:keys [uri method] :as request}]
     (let [label (str method " \"" uri "\"")]
       (try
-        (log/debug label)
+        (log/info label)
         (let [{:keys [status] :as response} (handler request)]
-          (log/debug (str label " -> " status))
+          (log/info (str label " -> " status))
           response)
         (catch Exception e
           (log/error e label)
@@ -35,8 +34,8 @@
 
 (def game-store (atom {}))
 (def game-bus (bus/event-bus))
-(def conn-counter (atom 0))
-(def conn-store (atom {}))
+(def sub-counter (atom 0))
+(def sub-store (atom {}))
 
 (defn json-response [body]
   (-> body
@@ -61,12 +60,11 @@
                       (wrap-resource "public")
                       (wrap-defaults site-defaults)))
 
-(defn rswap! [atom f]
+(defn swap-with-return! [atom f]
   (let [new-val (swap! atom (fn [val]
                               (let [[new-val ret] (f val)]
                                 (with-meta new-val {:ret ret}))))]
     [new-val (:ret (meta new-val))]))
-
 
 (defn game-resp [game]
   (json-response game))
@@ -79,17 +77,18 @@
   (let [{:keys [type]} action
         existing-game (get games id)]
     (case type
-      ;; start a new game
+      ;; Start a new game
       "new-game" (let [new-game (game/initial-state)]
+                   (log/info "New game started." {:id id})
                    [(assoc games id new-game) new-game])
 
-      ;; get game, starting it if necesary
+      ;; Get game, starting it if necesary
       "get-game" (if existing-game
                    [games existing-game]
                    (let [new-game (game/initial-state)]
                      [(assoc games id new-game) new-game]))
 
-      ;; apply action
+      ;; Apply action
       (if existing-game
         (let [updated-game (game/advance-state existing-game action)]
           [(assoc games id updated-game) updated-game])
@@ -101,17 +100,24 @@
       (resp/status 400)
       (resp/content-type "text/plain")))
 
-(defn add-conn! [conn game-id]
-  (let [conn-id (swap! conn-counter inc)]
-    (swap! conn-store assoc conn-id {:id conn-id
-                                     :game-id game-id
-                                     :conn conn})
-    conn-id))
+(defn ip-addr [req]
+  (if-let [ips (get-in req [:headers "x-forwarded-for"])]
+    (-> ips (str/split #",") first)
+    (:remote-addr req)))
 
-(defn close-conn! [conn-id]
-  (swap! conn-store (fn [conns]
-                      (s/close! (:conn (conns conn-id)))
-                      (dissoc conns conn-id))))
+(defn add-sub! [conn game-id ip-addr]
+  (let [sub-id (swap! sub-counter inc)]
+    (swap! sub-store assoc sub-id {:id sub-id
+                                   :ip-addr ip-addr
+                                   :game-id game-id
+                                   :conn conn})
+    sub-id))
+
+(defn remove-sub! [sub-id]
+  (swap! sub-store dissoc sub-id))
+
+(defn close-conn! [sub-id]
+  (s/close! (:conn (get @sub-store sub-id))))
 
 (defn handle-subscription [game-id req]
   (d/let-flow
@@ -120,8 +126,10 @@
              (constantly nil))]
    (if-not conn
      non-websocket-response
-     (let [conn-id (add-conn! conn game-id)
-           conn-label (str "[ws-conn-" conn-id "] ")]
+     (let [ip-addr (ip-addr req)
+           sub-id (add-sub! conn game-id ip-addr)]
+       (log/info "Subscription created." {:id sub-id :ip-addr ip-addr :game-id game-id})
+       (s/on-closed conn (partial remove-sub! sub-id))
        (s/connect-via
         (bus/subscribe game-bus game-id)
         (fn [message]
@@ -131,13 +139,16 @@
        {:status 101}))))
 
 (defroutes api-routes
+  (GET "/api/games" [_id]
+       (json-response (or (vals @game-store) [])))
+
   (GET "/api/games/:id" [id]
        (if-let [game (get @game-store id)]
          (game-resp game)
          (game-not-found-resp id)))
 
   (POST "/api/games/:id" [id :as {action :body}]
-        (let [[_ game] (rswap!
+        (let [[_ game] (swap-with-return!
                         game-store
                         (fn [games] (manage-game games id action)))]
           (bus/publish! game-bus id {:type "state" :state game})
@@ -145,8 +156,11 @@
             (game-resp game)
             (game-not-found-resp id))))
 
-  (GET "/api/game-subscriptions/:id" [id :as req]
+  (GET "/api/subscriptions/:id" [id :as req]
        (handle-subscription id req))
+
+  (GET "/api/subscriptions" []
+       (json-response (map #(dissoc % :conn) (vals @sub-store))))
 
   (ANY "*" []
        (route/not-found (-> (json-response {:message "Not found."})

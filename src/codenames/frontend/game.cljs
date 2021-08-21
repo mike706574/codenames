@@ -158,7 +158,7 @@
               port (-> js/window .-location .-port)
               host (-> js/window .-location .-hostname )
               base (if (str/blank? port) host (str host ":" port))
-              url (str protocol "://" base "/api/game-subscriptions/" id)]
+              url (str protocol "://" base "/api/subscriptions/" id)]
           (log/info "Establishing websocket connection." {:url url})
           (let [socket (js/WebSocket. url)]
             (set! (.-onopen socket)
