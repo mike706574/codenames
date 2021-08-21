@@ -9,6 +9,7 @@
             [manifold.bus :as bus]
             [manifold.deferred :as d]
             [manifold.stream :as s]
+            [manifold.time :as t]
             [selmer.parser :as selmer]
             [ring.util.response :as resp]
             [ring.middleware.defaults :refer [wrap-defaults
@@ -34,6 +35,8 @@
 
 (def game-store (atom {}))
 (def game-bus (bus/event-bus))
+(def conn-counter (atom 0))
+(def conn-store (atom {}))
 
 (defn json-response [body]
   (-> body
@@ -98,19 +101,34 @@
       (resp/status 400)
       (resp/content-type "text/plain")))
 
-(defn handle-subscription [id req]
-  (d/let-flow [conn (d/catch
-                        (http/websocket-connection req)
-                        (constantly nil))]
-              (if-not conn
-                non-websocket-response
-                (do (s/connect-via
-                     (bus/subscribe game-bus id)
-                     (fn [message]
-                       (s/put! conn (msg/encode message)))
-                     conn)
-                    (s/put! conn (msg/encode {:type "connected"}))
-                    {:status 101}))))
+(defn add-conn! [conn game-id]
+  (let [conn-id (swap! conn-counter inc)]
+    (swap! conn-store assoc conn-id {:id conn-id
+                                     :game-id game-id
+                                     :conn conn})
+    conn-id))
+
+(defn close-conn! [conn-id]
+  (swap! conn-store (fn [conns]
+                      (s/close! (:conn (conns conn-id)))
+                      (dissoc conns conn-id))))
+
+(defn handle-subscription [game-id req]
+  (d/let-flow
+   [conn (d/catch
+             (http/websocket-connection req {:heartbeats {:send-after-idle 100}})
+             (constantly nil))]
+   (if-not conn
+     non-websocket-response
+     (let [conn-id (add-conn! conn game-id)
+           conn-label (str "[ws-conn-" conn-id "] ")]
+       (s/connect-via
+        (bus/subscribe game-bus game-id)
+        (fn [message]
+          (s/put! conn (msg/encode message)))
+        conn)
+       (s/put! conn (msg/encode {:type "connected"}))
+       {:status 101}))))
 
 (defroutes api-routes
   (GET "/api/games/:id" [id]
@@ -143,9 +161,3 @@
   (if (str/starts-with? uri "/api")
     (api-handler request)
     (site-handler request)))
-
-(comment
-  @game-store
-  (reset! game-store {})
-
-  )
