@@ -138,12 +138,18 @@
   (let [message (decode (.-data event))
         {:keys [state]} message]
     (case (:type message)
-      "connected" (log/debug "Websocket connection established.")
+      "connected" (log/info "Received websocket connection confirmation.")
+      "heartbeat" (log/info "Received websocket heartbeat.")
       "state" (reset! state-atom state )
-      (log/debug (str "Invalid message: " message)))))
+      (log/info (str "Invalid websocket message: " message)))))
 
 (defn on-error [event]
-  (log/debug (str "TODO: Websocket error:" event)))
+  (log/info "Websocket error." {:event event}))
+
+(defn on-close [event]
+  (log/info "Websocket closed." {:code (.-code event)
+                                 :reason (.-reason event)
+                                 :clean? (.-wasClean event)}))
 
 (defn connect! [id state]
   (let [ch (chan)]
@@ -153,11 +159,12 @@
               host (-> js/window .-location .-hostname )
               base (if (str/blank? port) host (str host ":" port))
               url (str protocol "://" base "/api/game-subscriptions/" id)]
-          (log/debug (str "Establishing websocket connection to " url "."))
+          (log/info "Establishing websocket connection." {:url url})
           (let [socket (js/WebSocket. url)]
             (set! (.-onopen socket)
-                  (fn on-open
-                    [_]
+                  (fn on-open [_]
+                    (log/info "Successfully opened websocket connection." {:url url})
+                    (set! (.-onclose socket) on-close)
                     (set! (.-onmessage socket) (partial on-message state))
                     (set! (.-onerror socket) on-error)
                     (go (>! ch {:ok? true :websocket socket})))))))

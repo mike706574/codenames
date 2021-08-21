@@ -1,6 +1,7 @@
 (ns codenames.frontend.app
   (:require [codenames.frontend.game :as game]
-            [reagent.dom :as rd]))
+            [reagent.dom :as rd]
+            [taoensso.timbre :as log]))
 
 (defn app []
   (let [id (subs (-> js/window .-location .-pathname) 1)]
@@ -11,4 +12,5 @@
        [game/root id]]]]))
 
 (defn init []
+  (log/info "Initializing app.")
   (rd/render [app] (.getElementById js/document "root")))
