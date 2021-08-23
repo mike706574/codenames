@@ -18,9 +18,20 @@
       <div class="row">
         <div class="column" style="margin-top: 1em">
           <h1>Codenames</h1>
-          <a href="/game">Join Game</a>
+          <form onsubmit="return joinGame();">
+            <label for="id">Game</label>
+            <input type="text" id="id" name="id" value="game" />
+            <button type="submit" id="joinButton">Join</button>
+          </form>
         </div>
       </div>
     </div>
+    <script>
+      function joinGame() {
+        var id = document.getElementById("id").value;
+        window.location.href = window.location.href + id;
+        return false;
+      }
+    </script>
   </body>
 </html>
