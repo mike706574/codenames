@@ -19,4 +19,5 @@
   :uberjar-name "codenames.jar"
   :profiles {:uberjar {:env {:production true}
                        :prep-tasks ["frontend"]}}
+  :main codenames.backend.main
   :aliases {"frontend" ["shell" "npx" "shadow-cljs" "release" "frontend"]})
