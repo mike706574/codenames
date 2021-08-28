@@ -25,5 +25,5 @@ Start the backend with a REPL:
 ```
 lein repl
 (load-file "dev/user.clj")
-(restart)
+(reset)
 ```

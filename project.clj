@@ -18,6 +18,7 @@
   :plugins [[lein-shell "0.5.0"]]
   :uberjar-name "codenames.jar"
   :profiles {:uberjar {:env {:production true}
-                       :prep-tasks ["frontend"]}}
-  :main codenames.backend.main
+                       :prep-tasks ["frontend"]
+                       :aot :all}
+             :dev {:dependencies [[org.clojure/tools.namespace "1.1.0"]]}}
   :aliases {"frontend" ["shell" "npx" "shadow-cljs" "release" "frontend"]})

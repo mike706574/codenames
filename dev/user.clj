@@ -1,12 +1,30 @@
 (ns user
-  (:require [codenames.backend.main :as main]))
+  (:require [clojure.tools.namespace.repl :refer [refresh refresh-all]]
+            [codenames.backend.main :as main]
+            [taoensso.timbre :as log]))
 
-(defonce server (atom nil))
+(defonce system nil)
 
-(defn restart []
-  (swap!
-   server
-   (fn [s]
-     (when s (.close s))
-     (main/-main)))
-  :restarted)
+(defn init []
+  :init)
+
+(defn start []
+  (try
+    (alter-var-root #'system (fn [s] (main/-main)))
+    :started
+    (catch Exception ex
+      (log/error (or (.getCause ex) ex) "Failed to start system.")
+      :failed)))
+
+(defn stop []
+  (alter-var-root #'system (fn [s] (when s (.close s))))
+  :stopped)
+
+(defn go []
+  (init)
+  (start)
+  :ready)
+
+(defn reset []
+  (stop)
+  (refresh :after `go))
