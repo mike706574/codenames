@@ -1,7 +1,11 @@
 (ns user
-  (:require [clojure.tools.namespace.repl :refer [refresh refresh-all]]
+  (:require [clojure.tools.namespace.repl :as repl]
             [codenames.backend.main :as main]
             [taoensso.timbre :as log]))
+
+(repl/disable-reload!)
+
+(repl/set-refresh-dirs "src")
 
 (defonce system nil)
 
@@ -27,4 +31,4 @@
 
 (defn reset []
   (stop)
-  (refresh :after `go))
+  (repl/refresh :after `go))
